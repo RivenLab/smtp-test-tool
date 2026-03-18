@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SMTP Test Tool</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Mail Tools</h1>
+    <nav class="tool-menu" aria-label="Tools menu">
+      <a class="menu-link {% if active_tab == 'smtp' %}active{% endif %}" href="/?tab=smtp">SMTP Test</a>
+      <a class="menu-link {% if active_tab == 'configs' %}active{% endif %}" href="/?tab=configs">Configs</a>
+      <a class="menu-link {% if active_tab == 'history' %}active{% endif %}" href="/?tab=history">History</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      {% if notice_message %}
+        <div class="notice">{{ notice_message }}</div>
+      {% endif %}
+
+      {% if active_tab == "smtp" %}
+        <h2>SMTP Test Tool</h2>
+
+        <form method="post" action="/smtp/test">
+          <label for="server">SMTP Server</label>
+          <input id="server" name="server" type="text" placeholder="your.site.com" value="{{ form_data.server }}" required>
+          <div class="chips">
+            {% if smtp_hosts %}
+              {% for host in smtp_hosts %}
+                <button type="button" class="chip-btn server-chip" data-server="{{ host }}">{{ host }}</button>
+              {% endfor %}
+            {% else %}
+              <span>No saved SMTP hosts yet.</span>
+            {% endif %}
+          </div>
+
+          <label for="port">Port</label>
+          <input id="port" name="port" type="number" min="1" max="65535" value="{{ form_data.port }}" required>
+          <div class="chips">
+            <button type="button" class="chip-btn port-chip" data-port="25">25</button>
+            <button type="button" class="chip-btn port-chip" data-port="2525">2525</button>
+            <button type="button" class="chip-btn port-chip" data-port="465">465</button>
+            <button type="button" class="chip-btn port-chip" data-port="587">587</button>
+          </div>
+
+          <label for="security">Security</label>
+          <select id="security" name="security">
+            <option value="auto" {% if form_data.security == "auto" %}selected{% endif %}>Auto</option>
+            <option value="none" {% if form_data.security == "none" %}selected{% endif %}>None</option>
+            <option value="starttls" {% if form_data.security == "starttls" %}selected{% endif %}>STARTTLS</option>
+            <option value="ssl" {% if form_data.security == "ssl" %}selected{% endif %}>SSL/TLS</option>
+          </select>
+
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" placeholder="Username" value="{{ form_data.username }}" required>
+
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+
+          <label for="from_email">From email address</label>
+          <input id="from_email" name="from_email" type="email" placeholder="From email" value="{{ form_data.from_email }}" required>
+
+          <label for="to_email">To email address</label>
+          <input id="to_email" name="to_email" type="email" placeholder="To email" value="{{ form_data.to_email }}" required>
+
+          <label for="config_name">Config name (optional)</label>
+          <input id="config_name" name="config_name" type="text" placeholder="ex: Production Relay" value="{{ selected_config_name }}">
+
+          <div class="action-row">
+            <button type="submit">Test it</button>
+            <button type="button" id="save-config-btn" class="secondary-btn">Save Config</button>
+          </div>
+        </form>
+
+        {% include "partials/result.html" %}
+      {% elif active_tab == "configs" %}
+        <h2>Configs</h2>
+
+        <section class="sub-card">
+          <h3>Add SMTP host</h3>
+          <form method="post" action="/smtp/hosts" class="inline-form">
+            <input type="hidden" name="tab" value="configs">
+            <input name="host" type="text" placeholder="mail.host.com" required>
+            <button type="submit" class="secondary-btn">Add host</button>
+          </form>
+
+          {% if smtp_hosts %}
+            <div class="host-list">
+              {% for host in smtp_hosts %}
+                <div class="host-item">
+                  <span>{{ host }}</span>
+                  <form method="post" action="/smtp/hosts/delete" class="inline-form">
+                    <input type="hidden" name="tab" value="configs">
+                    <input type="hidden" name="host" value="{{ host }}">
+                    <button type="submit" class="danger-btn">Delete</button>
+                  </form>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="coming-soon">No SMTP hosts saved yet.</p>
+          {% endif %}
+        </section>
+
+        <section class="sub-card">
+          <h3>Saved Configs</h3>
+          {% if saved_configs %}
+            <div class="history-list">
+              {% for cfg in saved_configs %}
+                <div class="history-item">
+                  <div class="config-row">
+                    <div>
+                      <strong>{{ cfg.name }}</strong><br>
+                      {{ cfg.server }}:{{ cfg.port }} | {{ cfg.security|upper }} | {{ cfg.username }}
+                    </div>
+                    <div class="config-actions">
+                      <a class="menu-link" href="/?tab=smtp&config_id={{ cfg.id }}">Load</a>
+                      <form method="post" action="/smtp/configs/delete" class="inline-form">
+                        <input type="hidden" name="tab" value="configs">
+                        <input type="hidden" name="config_id" value="{{ cfg.id }}">
+                        <button type="submit" class="danger-btn">Delete</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="coming-soon">No saved configs yet.</p>
+          {% endif %}
+          <p class="history-meta">Create or update configs from the SMTP Test tab with the "Save Config" button.</p>
+        </section>
+      {% else %}
+        <h2>History</h2>
+        <section class="sub-card">
+          <form method="post" action="/smtp/history/flush" class="inline-form">
+            <input type="hidden" name="tab" value="history">
+            <button type="submit" class="danger-btn">Flush All History</button>
+          </form>
+        </section>
+
+        {% if history_entries %}
+          <div class="history-list">
+            {% for item in history_entries %}
+              <details class="history-item">
+                <summary>
+                  <span>{{ item.created_at }} - {{ item.server }}:{{ item.port }}</span>
+                  <span class="history-status {{ 'ok' if item.success else 'ko' }}">{{ 'SUCCESS' if item.success else 'ERROR' }}</span>
+                </summary>
+                <div class="history-meta">
+                  User: {{ item.username }} | Security: {{ item.security|upper }} | From: {{ item.from_email }} | To: {{ item.to_email }}
+                </div>
+                <pre>{{ item.transcript }}</pre>
+              </details>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="coming-soon">No history yet.</p>
+        {% endif %}
+      {% endif %}
+    </section>
+  </main>
+</body>
+</html>

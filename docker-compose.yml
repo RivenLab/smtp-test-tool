@@ -1,0 +1,22 @@
+services:
+  smtp-tool:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smtp-tool:latest
+    container_name: smtp-tool
+    ports:
+      - "8000:8000"
+    environment:
+      FLASK_SECRET_KEY: "${FLASK_SECRET_KEY:-replace-with-a-strong-secret}"
+      SMTP_TOOL_DB_PATH: "/data/smtp_tool.db"
+    volumes:
+      - ./data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
